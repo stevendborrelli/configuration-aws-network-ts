@@ -14,12 +14,12 @@ npm test
 
 The testing framework consists of three main components:
 
-1. **Test Helper Module** ([test-helpers.ts](./test-helpers.ts))
+1. **Test Helper Module** ([test-helpers.ts](./test/test-helpers.ts))
    - Utilities for loading test cases from YAML/JSON files
    - Assertion helpers for validating function output
    - Support for partial matching of complex objects
 
-2. **Test Suite** ([function.test.ts](./function.test.ts))
+2. **Test Suite** ([function.test.ts](./test/function.test.ts))
    - Unit tests for utility functions (`formatCIDR`, `formatSubnetName`)
    - Integration tests for the function's core behavior
    - Automatic discovery and execution of file-based test cases
@@ -96,7 +96,7 @@ The test suite automatically discovers and runs all `.yaml`, `.yml`, and `.json`
 
 ### Option 2: Direct Integration Tests
 
-Add tests directly to [function.test.ts](./function.test.ts):
+Add tests directly to [function.test.ts](./test/function.test.ts):
 
 ```typescript
 it('should do something specific', async () => {
@@ -190,10 +190,10 @@ expected:
 
 ### 1. Generate Reference Output
 
-Use `npm run local-render` to see what your function produces:
+Use `crossplane composition render` to see what your function produces:
 
 ```bash
-npm run local-render
+crossplane composition render
 ```
 
 This shows all resources that would be created for the example configuration.
@@ -217,7 +217,7 @@ npm test
 If tests fail:
 
 - Check the error message to see what doesn't match
-- Use `npm run local-render` to compare expected vs actual
+- Use `crossplane composition render` to compare expected vs actual
 - Update your test case or fix the function code
 
 ## Example Test Cases
@@ -233,7 +233,7 @@ The project includes four example test cases:
    - JSON format example
 
 3. **[example-from-render.yaml](./test-cases/example-from-render.yaml)**
-   - Matches the exact output from `npm run local-render`
+   - Matches the exact output from `crossplane composition render`
    - Complete validation of all 16 resources
 
 4. **[network-with-status.yaml](./test-cases/network-with-status.yaml)**
@@ -340,7 +340,7 @@ See [network-with-status.yaml](./test-cases/network-with-status.yaml) for a comp
 
 ## Test Helper API
 
-For advanced testing, use the helpers from [test-helpers.ts](./test-helpers.ts):
+For advanced testing, use the helpers from [test-helpers.ts](./test/test-helpers.ts):
 
 ```typescript
 import {
@@ -402,7 +402,7 @@ The resource name might not match. Check:
 Your function is creating more/fewer resources than expected. Run:
 
 ```bash
-npm run local-render
+crossplane composition render
 ```
 
 Count the resources in the output and update `resourceCount`.
@@ -428,5 +428,5 @@ The `yaml` package is required for YAML test case support.
 ## Further Reading
 
 - [Test Cases README](./test-cases/README.md) - Detailed guide to test case format
-- [function.test.ts](./function.test.ts) - Example integration tests
-- [test-helpers.ts](./test-helpers.ts) - Implementation details of test helpers
+- [function.test.ts](./test/function.test.ts) - Example integration tests
+- [test-helpers.ts](./test/test-helpers.ts) - Implementation details of test helpers

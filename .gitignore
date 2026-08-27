@@ -7,8 +7,9 @@ dist
 *.xpkg
 *.tar
 
-# Build artifacts
-_build
+# Crossplane CLI artifacts
+schemas/
+_output/
 
 # AI Helpers
 .claude

@@ -1,0 +1,55 @@
+name: Crossplane CLI
+description: >
+  Installs the crossplane CLI onto PATH.
+
+  TEMPORARY: this builds the CLI from source instead of installing a release,
+  because TypeScript embedded functions are not in a released CLI yet — see
+  https://github.com/crossplane/cli/pull/170. Once a release includes them,
+  delete this composite action and go back to calling
+  crossplane-contrib/setup-crossplane-action directly in each job.
+
+inputs:
+  repository:
+    description: Repository to build the CLI from.
+    required: false
+    default: stevendborrelli/cli
+  ref:
+    description: Branch, tag or SHA to build.
+    required: false
+    default: project-typescript-support
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout the Crossplane CLI
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+        path: .crossplane-cli-src
+
+    # Take the Go version from the CLI's own go.mod so this keeps working as
+    # the CLI moves forward.
+    - name: Setup Go
+      uses: actions/setup-go@v6
+      with:
+        go-version-file: .crossplane-cli-src/go.mod
+        cache: false
+
+    - name: Build the Crossplane CLI
+      shell: bash
+      working-directory: .crossplane-cli-src
+      run: |
+        mkdir -p "${RUNNER_TEMP}/bin"
+        go build -o "${RUNNER_TEMP}/bin/crossplane" ./cmd/crossplane
+        echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
+
+    # Keep the CLI source out of the project directory, so that it can't be
+    # picked up as project content by later steps.
+    - name: Remove the CLI source from the workspace
+      shell: bash
+      run: rm -rf .crossplane-cli-src
+
+    - name: Report the CLI version
+      shell: bash
+      run: crossplane version --client

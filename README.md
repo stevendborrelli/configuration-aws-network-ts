@@ -1,6 +1,11 @@
 # Crossplane AWS Network Configuration in TypeScript <!-- omit from toc -->
 
-This repository contains a Typescript implementation of [configuration-aws-network](https://github.com/upbound/configuration-aws-network), using Crossplane's [function-sdk-typescript](https://www.npmjs.com/package/@crossplane-org/function-sdk-typescript).
+This repository contains a TypeScript implementation of [configuration-aws-network](https://github.com/upbound/configuration-aws-network), using Crossplane's [function-sdk-typescript](https://www.npmjs.com/package/@crossplane-org/function-sdk-typescript).
+
+It is packaged as a [Crossplane project](https://docs.crossplane.io/latest/cli/), so the configuration and its embedded composition function are built, rendered, and pushed with the `crossplane` CLI rather than hand-written Docker and packaging scripts.
+
+> **Note:** TypeScript embedded functions require a `crossplane` CLI that includes
+> [crossplane/cli#170](https://github.com/crossplane/cli/pull/170).
 
 - [Installing and Running the Configuration and Function](#installing-and-running-the-configuration-and-function)
   - [Installation of the Package](#installation-of-the-package)
@@ -11,20 +16,13 @@ This repository contains a Typescript implementation of [configuration-aws-netwo
   - [Deleting the Example](#deleting-the-example)
 - [Project Structure](#project-structure)
 - [Development](#development)
-- [Updating the Function](#updating-the-function)
-  - [Build TypeScript](#build-typescript)
-  - [Type Checking](#type-checking)
-  - [Running Locally](#running-locally)
-  - [Crossplane Render](#crossplane-render)
+  - [Generating Schemas](#generating-schemas)
+  - [Updating the Function](#updating-the-function)
+  - [Type Checking and Tests](#type-checking-and-tests)
+  - [Rendering the Composition](#rendering-the-composition)
+  - [Running a Local Dev Cluster](#running-a-local-dev-cluster)
   - [Available CLI Options](#available-cli-options)
-- [Packaging the Function and the Configuration](#packaging-the-function-and-the-configuration)
-  - [Function](#function)
-    - [Function Docker Build](#function-docker-build)
-    - [Function Crossplane Package Build](#function-crossplane-package-build)
-    - [Pushing the Function Package](#pushing-the-function-package)
-  - [Configuration](#configuration)
-  - [Configuration Package Build](#configuration-package-build)
-  - [Configuration Package Push](#configuration-package-push)
+- [Building and Pushing the Project](#building-and-pushing-the-project)
 - [License](#license)
 - [Author](#author)
 
@@ -141,49 +139,64 @@ Network/configuration-aws-network (network-team)                                
 kubectl delete -n network-team network.aws.platform.upbound.io/configuration-aws-network
 ```
 
+
 ## Project Structure
 
 ```sh
 .
-├── Dockerfile                    # Dockerfile to build a runnable function
-├── README.md
-├── _build/                       # Build artifacts directory
-│   ├── docker_images/            # Built Docker images (.tar files)
-│   └── xpkg/                     # Built Crossplane packages (.xpkg files)
-├── config.yaml                   # Configuration file
-├── dist/                         # Compiled JavaScript artifacts
-├── env                           # Build environment variables
-├── examples/                     # Example manifests
-│   └── network/                  # Network example manifests
-├── function.test.ts              # Function unit tests
-├── function.ts                   # Function logic
-├── jest.config.js                # Jest test configuration
-├── main.ts                       # Function runtime setup
-├── package/                      # Configuration package files
-│   ├── apis/                     # Crossplane XRD and Composition files
-│   │   └── network/              # Network API definitions
-│   └── crossplane.yaml           # Configuration package metadata
-├── package-function/             # Function package files
-│   └── crossplane.yaml           # Function package metadata
-├── package.json                  # NPM dependencies and scripts
-├── scripts/                      # Build and push scripts
-│   ├── configuration-xpkg-build.sh
-│   ├── configuration-xpkg-push.sh
-│   ├── function-docker-build.sh
-│   ├── function-xpkg-build.sh
-│   └── function-xpkg-push.sh
-└── tsconfig.json                 # TypeScript configuration
+├── crossplane-project.yaml       # Project metadata, dependencies, schema languages
+├── apis/
+│   └── network/
+│       ├── definition.yaml       # CompositeResourceDefinition (XRD)
+│       ├── composition.yaml      # Composition pipeline
+│       └── mrap.yaml             # ManagedResourceActivationPolicy for the EC2 MRs
+├── examples/
+│   └── network/                  # Example Network manifests
+├── functions/
+│   └── network/                  # Embedded TypeScript composition function
+│       ├── package.json
+│       ├── tsconfig.json
+│       ├── vitest.config.ts
+│       ├── src/
+│       │   ├── function.ts       # Function logic
+│       │   └── main.ts           # gRPC server entrypoint
+│       └── test/
+│           ├── function.test.ts
+│           ├── test-helpers.ts
+│           └── test-cases/       # YAML/JSON driven test fixtures
+├── operations/                   # Crossplane Operations (unused)
+├── tests/                        # Crossplane composition tests (unused)
+├── schemas/                      # Generated — not checked in
+│   └── typescript/               # crossplane-models package
+└── _output/                      # Built packages — not checked in
 ```
 
 ## Development
 
-## Updating the Function
+### Generating Schemas
 
-All the logic of the function is located in [function.ts](function.ts). This project contains Typescript types from at <https://www.npmjs.com/package/@crossplane-models/provider-upjet-aws>, which has all the resources in the 2.x upjet-based providers.
+`spec.schemas.languages` in [crossplane-project.yaml](crossplane-project.yaml) is set to
+`typescript`, so the CLI generates a `crossplane-models` npm package into `schemas/typescript/`
+from the CRDs of every dependency plus the XRDs in `apis/`. The function depends on it as a
+`file:` dependency, so the schemas must exist before `npm install` will work:
+
+```bash
+crossplane project build
+```
+
+The function imports the namespaced (v2) EC2 types from it:
+
+```typescript
+import { VPC, Subnet } from 'crossplane-models/ec2.aws.m.upbound.io/v1beta1';
+```
+
+### Updating the Function
+
+All the logic of the function is in [functions/network/src/function.ts](functions/network/src/function.ts).
 
 To create a resource:
 
-1. Create a new type (like a VPC)
+1. Create a new type (like a VPC).
 2. Run `validate()` against the resource.
 3. Add the resource to the `desiredComposed` map.
 
@@ -215,187 +228,75 @@ desiredComposed['vpc'] = Resource.fromJSON({
 });
 ```
 
-### Build TypeScript
+If you add a new managed resource kind, add its CRD name to
+[apis/network/mrap.yaml](apis/network/mrap.yaml) so Crossplane activates it.
 
-Compile TypeScript to JavaScript. The compiled files will be written to the [`dist`](dist) directory.
+### Type Checking and Tests
 
-```bash
-npm run tsc
-```
-
-Typescript 7 can also be used:
+All npm commands run inside `functions/network`:
 
 ```bash
-npm run tsgo
+cd functions/network
+npm install
+npm run build   # compile with tsc (TypeScript 7) into dist/
+npm test        # vitest
 ```
 
-### Type Checking
+### Rendering the Composition
 
-Check types without emitting files:
+`crossplane composition render` builds the embedded function and runs the pipeline locally —
+no cluster and no separately-started function process required. The first run pulls the Node
+build image and runs `npm install`, so give it a generous timeout:
 
 ```bash
-npm run check-types
+crossplane composition render \
+  examples/network/configuration-aws-network.yaml \
+  apis/network/composition.yaml \
+  --timeout=10m
 ```
 
-### Running Locally
+Add `--include-function-results` to see the function's own messages, or `--include-full-xr`
+to see the composite's spec and status.
 
-After compiling the source code, the function can be run locally for
-testing with `crossplane render` either directly via `node` or via `npm`:
+### Running a Local Dev Cluster
 
 ```bash
-node dist/main.js --insecure --debug
-```
-
-Using `npm run`:
-
-```bash
-npm run local
-```
-
-Combining these commands to run a clean build:
-
-```shell
-npm run clean && npm run tsgo && npm run local
-```
-
-The function must be shut down using before running locally again.
-
-### Crossplane Render
-
-The `crossplane render` command allows developers to generate function outputs. The
-function can be run as a local process running on port 9443, `crossplane render` can
-connect to this port and invoke the function.
-
-After running `npm run local` in one terminal to start the local process, run the
-following to render a manifest:
-
-```sh
-npm run local-render
-```
-
-or run `crossplane render` directly:
-
-```sh
-crossplane render examples/network/configuration-aws-network.yaml package/apis/network/composition.yaml examples/functions.yaml
-
+crossplane project run     # Kind cluster + Crossplane + this configuration
+crossplane project stop    # tear it down
 ```
 
 ### Available CLI Options
 
-The function supports several CLI options:
+The function binary supports several CLI options:
 
 - `--address` - Address to listen for gRPC connections (default: `0.0.0.0:9443`)
 - `-d, --debug` - Enable debug logging
 - `--insecure` - Run without mTLS credentials (for local development)
 - `--tls-server-certs-dir` - Directory containing mTLS certificates (default: `/tls/server`)
 
-## Packaging the Function and the Configuration
-
-Scripts are provided to build Crossplane packages for the Function and the Configuration
-that uses the function.
-
-The [`env`](env) file contains environment variable to set the version and Docker repository.
-
-### Function
-
-The function runs as a Kubernetes pod, which requires a docker image.
-
-#### Function Docker Build
-
-The function package runs in a Docker/OCI image. To create a multi-platform image, run
-via npm or the shell script directly:
+To run it directly:
 
 ```bash
-npm run function-docker-build
+cd functions/network && npm run local
 ```
 
-or:
+## Building and Pushing the Project
+
+`crossplane project build` generates the schemas, builds the embedded function image for every
+architecture in `spec.architectures`, and writes a configuration package to `_output/`:
 
 ```bash
-scripts/function-docker-build.sh
+crossplane project build
 ```
 
-The Dockerfile uses a multi-stage build:
-
-1. **Build stage**: Uses `node:25` to install dependencies and compile TypeScript
-2. **Runtime stage**: Uses `gcr.io/distroless/nodejs24-debian12` for a minimal, secure runtime
-
-The images will be saved in the `_build/docker` directory:
+`crossplane project push` uploads the configuration package and every embedded function package
+it references:
 
 ```bash
-$ ls -al _build/docker_images
-configuration-aws-network-ts-function-runtime-amd64-v0.0.8.tar
-configuration-aws-network-ts-function-runtime-arm64-v0.0.8.tar
+crossplane project push --tag v0.2.0
 ```
 
-#### Function Crossplane Package Build
-
-Now that docker images have been created, build the Crossplane function packages.
-
-```bash
-npm run function-xpkg-build
-```
-
-or:
-
-```bash
-scripts/function-xpkg-build.sh
-```
-
-The created function images will be in the `_build/xpkg` directory:
-
-```shell
-$ ls _build/xpkg
-configuration-aws-network-ts-function-amd64-v0.0.8.xpkg
-configuration-aws-network-ts-function-arm64-v0.0.8.xpkg
-```
-
-#### Pushing the Function Package
-
-Push the packages to any docker registry. The registry can be changed via the [`env`](env) file:
-
-```bash
-npm run function-xpkg-push
-```
-
-or:
-
-```bash
-scripts/function-xpkg-push.sh
-```
-
-### Configuration
-
-The Configuration Package contains the CompositeResourceDefinition, Composition, and Dependencies. Configuration
-files are located in the [`package`](package) directory.
-
-### Configuration Package Build
-
-```bash
-npm run configuration-xpkg-build
-```
-
-or:
-
-```bash
-scripts/configuration-xpkg-build.sh
-```
-
-The package will be created as `_build/xpkg/configuration-aws-network-ts-v${VERSION}.xpkg`
-
-### Configuration Package Push
-
-Push the packages to any docker registry. The registry can be changed via the [`env`](env) file:
-
-```bash
-npm run configuration-xpkg-push
-```
-
-or:
-
-```bash
-scripts/configuration-xpkg-push.sh
-```
+Both run in [CI](.github/workflows/ci.yaml) on every push.
 
 ## License
 
