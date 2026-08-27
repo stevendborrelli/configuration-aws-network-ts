@@ -1,56 +1,27 @@
 name: Crossplane CLI
 description: >
-  Installs the crossplane CLI onto PATH.
+  Puts the crossplane CLI on PATH, from the artifact built by the `cli` job.
 
-  TEMPORARY: this builds the CLI from source instead of installing a release,
+  TEMPORARY: the CLI is built from source rather than installed from a release,
   because TypeScript embedded functions are not in a released CLI yet — see
   https://github.com/crossplane/cli/pull/170. Once a release includes them,
-  delete this composite action and go back to calling
+  delete this composite action along with the `cli` job, and go back to calling
   crossplane-contrib/setup-crossplane-action directly in each job.
-
-inputs:
-  repository:
-    description: Repository to build the CLI from.
-    required: false
-    default: stevendborrelli/cli
-  ref:
-    description: Branch, tag or SHA to build.
-    required: false
-    default: project-typescript-support
 
 runs:
   using: composite
   steps:
-    - name: Checkout the Crossplane CLI
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Download the Crossplane CLI
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
-        path: .crossplane-cli-src
+        name: crossplane-cli
+        path: ${{ runner.temp }}/bin
 
-    # Take the Go version from the CLI's own go.mod so this keeps working as
-    # the CLI moves forward. Cache the module downloads too: building the CLI
-    # from source pulls its entire dependency tree on every job, which is both
-    # slow and an avoidable dependency on proxy.golang.org staying healthy.
-    - name: Setup Go
-      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-      with:
-        go-version-file: .crossplane-cli-src/go.mod
-        cache-dependency-path: .crossplane-cli-src/go.sum
-
-    - name: Build the Crossplane CLI
+    - name: Put the Crossplane CLI on PATH
       shell: bash
-      working-directory: .crossplane-cli-src
       run: |
-        mkdir -p "${RUNNER_TEMP}/bin"
-        go build -o "${RUNNER_TEMP}/bin/crossplane" ./cmd/crossplane
+        chmod +x "${RUNNER_TEMP}/bin/crossplane"
         echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
-
-    # Keep the CLI source out of the project directory, so that it can't be
-    # picked up as project content by later steps.
-    - name: Remove the CLI source from the workspace
-      shell: bash
-      run: rm -rf .crossplane-cli-src
 
     - name: Report the CLI version
       shell: bash

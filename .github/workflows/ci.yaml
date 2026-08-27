@@ -49,11 +49,57 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Computed version: ${VERSION}"
 
+  # TEMPORARY: build the crossplane CLI from source, because TypeScript
+  # embedded functions are not in a released CLI yet. Building it once and
+  # sharing the binary keeps the jobs below from each pulling the CLI's whole
+  # dependency tree in parallel. See https://github.com/crossplane/cli/pull/170.
+  cli:
+    runs-on: *default-runner
+    steps:
+      - name: Checkout the Crossplane CLI
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: stevendborrelli/cli
+          ref: project-typescript-support
+
+      # Take the Go version from the CLI's own go.mod so this keeps working as
+      # the CLI moves forward.
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      # proxy.golang.org has returned transient stream errors on this download,
+      # so retry before failing the whole workflow.
+      - name: Download Go modules
+        run: |
+          for attempt in 1 2 3; do
+            if go mod download; then
+              exit 0
+            fi
+            echo "go mod download failed (attempt ${attempt}), retrying..."
+            sleep $((attempt * 10))
+          done
+          exit 1
+
+      - name: Build the Crossplane CLI
+        run: go build -o crossplane ./cmd/crossplane
+
+      - name: Upload the Crossplane CLI
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: crossplane-cli
+          path: crossplane
+          if-no-files-found: error
+          retention-days: 1
+
   # Unit test the embedded TypeScript function. The generated crossplane-models
   # package is a file: dependency of the function, so the schemas have to exist
   # before npm can install.
   test:
     runs-on: *default-runner
+    needs:
+      - cli
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -85,6 +131,7 @@ jobs:
     runs-on: *default-runner
     needs:
       - version
+      - cli
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -124,6 +171,7 @@ jobs:
     runs-on: *default-runner
     needs:
       - version
+      - cli
       - test
       - build
     steps:
