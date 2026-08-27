@@ -28,7 +28,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -49,17 +49,63 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Computed version: ${VERSION}"
 
+  # TEMPORARY: build the crossplane CLI from source, because TypeScript
+  # embedded functions are not in a released CLI yet. Building it once and
+  # sharing the binary keeps the jobs below from each pulling the CLI's whole
+  # dependency tree in parallel. See https://github.com/crossplane/cli/pull/170.
+  cli:
+    runs-on: *default-runner
+    steps:
+      - name: Checkout the Crossplane CLI
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: stevendborrelli/cli
+          ref: project-typescript-support
+
+      # Take the Go version from the CLI's own go.mod so this keeps working as
+      # the CLI moves forward.
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      # proxy.golang.org has returned transient stream errors on this download,
+      # so retry before failing the whole workflow.
+      - name: Download Go modules
+        run: |
+          for attempt in 1 2 3; do
+            if go mod download; then
+              exit 0
+            fi
+            echo "go mod download failed (attempt ${attempt}), retrying..."
+            sleep $((attempt * 10))
+          done
+          exit 1
+
+      - name: Build the Crossplane CLI
+        run: go build -o crossplane ./cmd/crossplane
+
+      - name: Upload the Crossplane CLI
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: crossplane-cli
+          path: crossplane
+          if-no-files-found: error
+          retention-days: 1
+
   # Unit test the embedded TypeScript function. The generated crossplane-models
   # package is a file: dependency of the function, so the schemas have to exist
   # before npm can install.
   test:
     runs-on: *default-runner
+    needs:
+      - cli
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{env.NODE_VERSION}}
 
@@ -85,17 +131,18 @@ jobs:
     runs-on: *default-runner
     needs:
       - version
+      - cli
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup QEMU
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
         with:
           platforms: all
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
       - name: Setup the Crossplane CLI
         uses: ./.github/actions/crossplane-cli
@@ -111,7 +158,7 @@ jobs:
             --timeout=10m
 
       - name: Upload Package
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: configuration-xpkg
           path: _output/*.xpkg
@@ -124,14 +171,15 @@ jobs:
     runs-on: *default-runner
     needs:
       - version
+      - cli
       - test
       - build
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Download Package
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: configuration-xpkg
           path: _output
@@ -140,7 +188,7 @@ jobs:
         uses: ./.github/actions/crossplane-cli
 
       - name: Login to Upbound
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef #v3.6.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         if: env.XPKG_ACCESS_ID != ''
         with:
           registry: xpkg.upbound.io
