@@ -22,7 +22,7 @@ runs:
   using: composite
   steps:
     - name: Checkout the Crossplane CLI
-      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.ref }}
@@ -31,7 +31,7 @@ runs:
     # Take the Go version from the CLI's own go.mod so this keeps working as
     # the CLI moves forward.
     - name: Setup Go
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version-file: .crossplane-cli-src/go.mod
         cache: false
