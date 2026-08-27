@@ -29,12 +29,14 @@ runs:
         path: .crossplane-cli-src
 
     # Take the Go version from the CLI's own go.mod so this keeps working as
-    # the CLI moves forward.
+    # the CLI moves forward. Cache the module downloads too: building the CLI
+    # from source pulls its entire dependency tree on every job, which is both
+    # slow and an avoidable dependency on proxy.golang.org staying healthy.
     - name: Setup Go
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version-file: .crossplane-cli-src/go.mod
-        cache: false
+        cache-dependency-path: .crossplane-cli-src/go.sum
 
     - name: Build the Crossplane CLI
       shell: bash

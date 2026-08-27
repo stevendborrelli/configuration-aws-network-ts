@@ -1,0 +1,61 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "semanticCommits": "enabled",
+  "labels": ["automated", "dependencies"],
+  "schedule": ["before 4am on Monday"],
+  "prConcurrentLimit": 3,
+  "prHourlyLimit": 2,
+  "npm": {
+    "minimumReleaseAge": "3 days"
+  },
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "addLabels": ["security"]
+  },
+  "packageRules": [
+    {
+      "description": "Renovate applies rules in order and later ones win, so the broad grouping goes first and the specific exceptions come last.",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "all non-major dependencies",
+      "groupSlug": "all-minor-patch"
+    },
+    {
+      "description": "Major updates land on their own, so they can be reviewed one at a time.",
+      "matchUpdateTypes": ["major"],
+      "groupName": "major dependencies",
+      "addLabels": ["major-update"]
+    },
+    {
+      "description": "Group GitHub Actions, including the composite action under .github/actions.",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "description": "TypeScript and linting tooling. Matched by exact name rather than substring, so that @crossplane-org/function-sdk-typescript is not swept in here by the word 'typescript'.",
+      "matchPackageNames": [
+        "typescript",
+        "typescript-eslint",
+        "prettier",
+        "vitest",
+        "@typescript/**",
+        "@eslint/**",
+        "eslint"
+      ],
+      "groupName": "TypeScript and linting",
+      "addLabels": ["tooling"]
+    },
+    {
+      "description": "Crossplane dependencies. Listed after the tooling rule so the TypeScript SDK ends up here rather than in that group.",
+      "matchPackageNames": ["@crossplane-org/**", "@crossplane-models/**"],
+      "groupName": "Crossplane dependencies",
+      "addLabels": ["crossplane"]
+    },
+    {
+      "description": "The `typescript` dependency is aliased to @typescript/typescript6, so that typescript-eslint still has a JavaScript compiler API to import. TypeScript 7 is installed alongside it as @typescript/native and provides `tsc`. Do not let the TypeScript 6 alias be bumped across the major. Remove this rule, and the alias in functions/network/package.json, once typescript-eslint supports TypeScript 7.",
+      "matchPackageNames": ["@typescript/typescript6"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    }
+  ]
+}
