@@ -24,14 +24,13 @@ import {
   SecurityGroupRule,
   Subnet,
   VPC,
-} from '@crossplane-models/provider-upjet-aws/ec2.aws.m.upbound.io/v1beta1';
+} from 'crossplane-models/ec2.aws.m.upbound.io/v1beta1';
 
 /**
  * Function creates AWS network infrastructure including VPC, subnets,
  * route tables, internet gateway, and security groups
  */
 export class Function implements FunctionHandler {
-  // eslint-disable-next-line @typescript-eslint/require-await
   async RunFunction(req: RunFunctionRequest, logger?: Logger): Promise<RunFunctionResponse> {
     const startTime = Date.now();
 

@@ -1,5 +1,5 @@
-import { describe, it, expect } from '@jest/globals';
-import { formatCIDR, formatSubnetName, Function } from './function.js';
+import { describe, it, expect } from 'vitest';
+import { formatCIDR, formatSubnetName, Function } from '../src/function.js';
 import {
   loadTestCases,
   assertTestCase,
@@ -310,7 +310,7 @@ describe('Test cases from files', () => {
 
         testCases.forEach((testCase) => {
           it(testCase.name, async () => {
-            const response = await func.RunFunction(testCase.input as any);
+            const response = await func.RunFunction(testCase.input);
 
             // Run all assertions
             expect(() => assertTestCase(response, testCase)).not.toThrow();

@@ -2,40 +2,33 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  // Base recommended configs
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
 
-  // Global settings
   {
     languageOptions: {
       parserOptions: {
+        // tsconfig.json excludes the tests so they stay out of dist/, but the
+        // type aware rules still need them in a program.
         project: './tsconfig.eslint.json',
         tsconfigRootDir: import.meta.dirname,
       },
     },
   },
 
-  // Ignore patterns
-  {
-    ignores: [
-      'build/**',
-      'dist/**',
-      'node_modules/**',
-      '*.config.js',
-      '*.config.ts',
-      'coverage/**',
-    ],
-  },
+  { ignores: ['dist/**', 'node_modules/**', '*.config.js'] },
 
-  // Project-specific rules
   {
     files: ['**/*.ts'],
     rules: {
       // Stylistic preferences
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/no-explicit-any': 'warn', // Warn instead of error for flexibility
+      '@typescript-eslint/no-explicit-any': 'warn',
+
+      // RunFunction is async because FunctionHandler requires a Promise, not
+      // because it necessarily awaits anything.
+      '@typescript-eslint/require-await': 'off',
 
       // Allow unused vars with underscore prefix
       '@typescript-eslint/no-unused-vars': [
@@ -58,18 +51,14 @@ export default tseslint.config(
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'prefer-const': 'error',
       'no-var': 'error',
-      'eqeqeq': ['error', 'always'],
+      eqeqeq: ['error', 'always'],
     },
   },
 
-  // Test file specific rules
   {
     files: ['**/*.test.ts', '**/*.spec.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off',
     },
-  },
+  }
 );

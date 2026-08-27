@@ -1,0 +1,38 @@
+{
+  "name": "configuration-aws-network-ts-function",
+  "version": "0.1.0",
+  "description": "Composes an AWS network (VPC, subnets, route tables, gateway, security groups).",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist node_modules",
+    "local": "node dist/main.js --insecure --debug",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write \"**/*.{ts,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,json,md}\"",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck:legacy": "tsc6 --noEmit"
+  },
+  "dependencies": {
+    "@crossplane-org/function-sdk-typescript": "^0.6.0",
+    "@types/node": "^26.0.0",
+    "commander": "^15.0.0",
+    "crossplane-models": "file:../../schemas/typescript",
+    "kubernetes-models": "^5.0.0",
+    "pino": "^10.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@typescript/native": "npm:typescript@^7.0.0",
+    "eslint": "^10.9.1",
+    "prettier": "^3.7.4",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-eslint": "^8.68.0",
+    "vitest": "^4.1.11",
+    "yaml": "^2.8.2"
+  }
+}
