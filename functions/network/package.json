@@ -20,8 +20,7 @@
   "dependencies": {
     "@crossplane-org/function-sdk-typescript": "^0.7.0",
     "@types/node": "^26.0.0",
-    "crossplane-models": "file:../../schemas/typescript",
-    "kubernetes-models": "^5.0.0"
+    "crossplane-models": "file:../../schemas/typescript"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
