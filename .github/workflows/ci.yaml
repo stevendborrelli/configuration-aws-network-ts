@@ -76,7 +76,11 @@ jobs:
           # Pinned to a commit rather than the branch: the branch is force-pushed
           # as the PR is revised, which would silently change what a release
           # builds. Bump this when picking up new CLI changes.
-          ref: 0d19745dc682ca02085f59bc8d9dcf5c37538421
+          #
+          # Bumped for this change: the CLI now generates TypeScript models
+          # for a k8s: dependency merged with CRD-derived models in the same
+          # pass, which is what lets this project drop kubernetes-models.
+          ref: ccc4242685803ab30d571a55fa6673c96221f65c
 
       # Take the Go version from the CLI's own go.mod so this keeps working as
       # the CLI moves forward.
