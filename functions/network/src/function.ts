@@ -334,13 +334,13 @@ export const compose: ComposeFunction = async (req, rsp, logger) => {
     if (subnetIds.length > 0) xrStatus.subnetIds = subnetIds;
     if (vpcId) xrStatus.vpcId = vpcId;
 
-    const withStatus = setDesiredCompositeStatus({ rsp, status: xrStatus });
+    setDesiredCompositeStatus({ rsp, status: xrStatus });
 
     const duration = Date.now() - startTime;
     logger?.info({ duration: `${duration}ms` }, 'Function completed successfully');
 
-    normal(withStatus, 'processing complete');
-    return withStatus;
+    normal(rsp, 'processing complete');
+    return rsp;
   } catch (error) {
     const duration = Date.now() - startTime;
     logger?.error(
